@@ -8,8 +8,9 @@
 
 ## Safe Claims After First Results
 
-- The backup dataset is large enough to support a meaningful benchmark.
-- Deeper convolutional models provide a useful comparison against a simpler baseline.
+- The backup dataset is large enough to support a meaningful benchmark (6,300 test images).
+- Both SmallCNN and ResNet-18 achieve ~0.94–0.95 test accuracy with P/R/F1 ≈0.94–0.95 per class (short, capped training).
+- Deeper convolutional models provide a useful comparison against a simpler baseline, but gains require longer or GPU training.
 
 ## Claims That Need Evidence
 

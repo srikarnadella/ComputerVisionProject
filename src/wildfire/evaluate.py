@@ -11,7 +11,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import (
+    auc,
+    classification_report,
+    confusion_matrix,
+    precision_recall_curve,
+    roc_curve,
+)
 from torchvision.utils import make_grid
 
 # Ensure `src` is on sys.path so `python -m wildfire.evaluate` works without PYTHONPATH
@@ -53,6 +59,67 @@ def _save_confusion_matrix(cm: np.ndarray, class_names: Sequence[str], out_path:
                 fontsize=9,
             )
 
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _save_pr_curve(
+    y_true: np.ndarray, y_scores: np.ndarray, pos_label: int, out_path: Path, title: str
+) -> float:
+    precision, recall, _ = precision_recall_curve(y_true, y_scores, pos_label=pos_label)
+    ap = auc(recall, precision) if len(recall) > 1 else 0.0
+    fig, ax = plt.subplots(figsize=(5, 4))
+    ax.plot(recall, precision, label=f"AP = {ap:.3f}")
+    ax.set_xlabel("Recall")
+    ax.set_ylabel("Precision")
+    ax.set_title(title)
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="lower left")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return ap
+
+
+def _save_roc_curve(
+    y_true: np.ndarray, y_scores: np.ndarray, pos_label: int, out_path: Path, title: str
+) -> float:
+    fpr, tpr, _ = roc_curve(y_true, y_scores, pos_label=pos_label)
+    roc_auc = auc(fpr, tpr) if len(fpr) > 1 else 0.0
+    fig, ax = plt.subplots(figsize=(5, 4))
+    ax.plot(fpr, tpr, label=f"AUC = {roc_auc:.3f}")
+    ax.plot([0, 1], [0, 1], "k--", alpha=0.4)
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("True Positive Rate")
+    ax.set_title(title)
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="lower right")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return roc_auc
+
+
+def _save_per_class_bar(report: dict, class_names: Sequence[str], out_path: Path) -> None:
+    # report is a dict from classification_report(output_dict=True)
+    precisions = [report.get(name, {}).get("precision", 0.0) for name in class_names]
+    recalls = [report.get(name, {}).get("recall", 0.0) for name in class_names]
+    f1s = [report.get(name, {}).get("f1-score", 0.0) for name in class_names]
+
+    x = np.arange(len(class_names))
+    width = 0.25
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.bar(x - width, precisions, width, label="Precision")
+    ax.bar(x, recalls, width, label="Recall")
+    ax.bar(x + width, f1s, width, label="F1")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(class_names, rotation=20, ha="right")
+    ax.set_ylim(0, 1)
+    ax.set_ylabel("Score")
+    ax.set_title("Per-class metrics")
+    ax.legend()
     fig.tight_layout()
     fig.savefig(out_path, dpi=200, bbox_inches="tight")
     plt.close(fig)
@@ -142,6 +209,7 @@ def main() -> None:
     summed = {"accuracy": 0.0, "precision": 0.0, "recall": 0.0, "f1": 0.0}
     all_targets = []
     all_preds = []
+    all_pos_scores = []
     qual_images = []
     qual_preds = []
     qual_targets = []
@@ -154,6 +222,7 @@ def main() -> None:
             loss = criterion(logits, targets)
             metrics = classification_metrics(logits, targets)
             preds = logits.argmax(dim=1)
+            probs = torch.softmax(logits, dim=1)[:, 1]  # score for class index 1 (wildfire)
 
             batch_size = targets.size(0)
             total_loss += loss.item() * batch_size
@@ -162,6 +231,7 @@ def main() -> None:
                 summed[key] += metrics[key] * batch_size
             all_targets.append(targets.cpu())
             all_preds.append(preds.cpu())
+            all_pos_scores.append(probs.cpu())
 
             if len(qual_images) < args.num_qualitative:
                 keep = min(args.num_qualitative - len(qual_images), images.size(0))
@@ -183,6 +253,7 @@ def main() -> None:
 
     all_targets_cat = torch.cat(all_targets).numpy()
     all_preds_cat = torch.cat(all_preds).numpy()
+    all_scores_cat = torch.cat(all_pos_scores).numpy()
 
     if not args.no_confusion:
         cm = confusion_matrix(all_targets_cat, all_preds_cat, labels=list(range(len(class_names))))
@@ -198,6 +269,26 @@ def main() -> None:
             output_dict=True,
         )
         save_json(report, save_dir / f"classification_report_{args.split}.json")
+        _save_per_class_bar(report, class_names, save_dir / f"per_class_{args.split}.png")
+
+        # Binary curves assume class 1 is positive (wildfire)
+        pr_ap = _save_pr_curve(
+            all_targets_cat,
+            all_scores_cat,
+            pos_label=1,
+            out_path=save_dir / f"pr_curve_{args.split}.png",
+            title=f"Precision–Recall ({args.split})",
+        )
+        roc_auc = _save_roc_curve(
+            all_targets_cat,
+            all_scores_cat,
+            pos_label=1,
+            out_path=save_dir / f"roc_curve_{args.split}.png",
+            title=f"ROC ({args.split})",
+        )
+        results["pr_ap"] = pr_ap
+        results["roc_auc"] = roc_auc
+        save_json(results, save_dir / f"eval_{args.split}.json")
 
     if qual_images:
         images_tensor = torch.cat(qual_images, dim=0)[: args.num_qualitative]

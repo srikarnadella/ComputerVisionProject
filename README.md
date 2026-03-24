@@ -47,23 +47,42 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Train the simple baseline:
+Train the simple baseline (SmallCNN):
 
 ```bash
-PYTHONPATH=src python3 -m wildfire.train --config configs/small_cnn_classifier.yaml
+python -m src.wildfire.train --config configs/small_cnn_classifier.yaml
 ```
 
-Train the stronger baseline:
+Train the stronger baseline (ResNet-18):
 
 ```bash
-PYTHONPATH=src python3 -m wildfire.train --config configs/resnet18_classifier.yaml
+# standard
+python -m src.wildfire.train --config configs/resnet18_classifier.yaml
+
+# fast preset (pretrained, 160px, 2 epochs; good for quick iterations)
+python -m src.wildfire.train --config configs/resnet18_fast.yaml --max-train-batches 300 --max-val-batches 150
 ```
 
-Evaluate a trained checkpoint:
+Speed/debug knobs (optional):
+- `--epochs N` override epoch count.
+- `--max-train-batches N` / `--max-val-batches N` cap batches per epoch for quick smoke tests.
+- Set `training.device: cuda` in the config if you have a GPU.
+
+Evaluate a trained checkpoint (saves metrics + confusion matrix + qualitative grid):
 
 ```bash
-PYTHONPATH=src python3 -m wildfire.evaluate --config configs/resnet18_classifier.yaml --split test
+# test split
+python -m src.wildfire.evaluate --config configs/resnet18_classifier.yaml --split test
+
+# SmallCNN test
+python -m src.wildfire.evaluate --config configs/small_cnn_classifier.yaml --split test
 ```
+
+Evaluation artifacts land in the run output dir (e.g., `outputs/wildfire_resnet18_baseline/`):
+- `eval_<split>.json` (overall metrics)
+- `classification_report_<split>.json` (per class)
+- `confusion_<split>.png`
+- `qualitative_<split>.png`
 
 ## Midterm Deliverables
 

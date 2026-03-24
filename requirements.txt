@@ -4,3 +4,5 @@ PyYAML>=6.0
 torch>=2.1
 torchvision>=0.16
 tqdm>=4.66
+matplotlib>=3.8
+scikit-learn>=1.3

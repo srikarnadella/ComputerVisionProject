@@ -32,8 +32,9 @@ Describe:
 - Dataset splits: `train`, `valid`, `test`
 - Small CNN baseline
 - ResNet-18 baseline
-- Cross-entropy loss and AdamW optimization
+- Cross-entropy loss and AdamW optimization (with optional class weighting for final report)
 - Accuracy, precision, recall, and F1
+- Fast-run settings for compute limits (batch caps, smaller image size, pretrained backbone)
 
 ## 4. Experiments
 
@@ -48,6 +49,7 @@ Minimum deliverables:
 - One metric table
 - One confusion matrix
 - One qualitative predictions figure
+- Discuss compute constraints and partial-run nature of midterm results; commit to full runs for final report
 
 ## 5. Conclusion and Future Work
 
@@ -56,4 +58,5 @@ State:
 - The project pivoted to the backup dataset
 - The current pipeline gives a reproducible classification benchmark
 - Future work can add transfer learning, ablations, and richer wildfire datasets
+- For final: run full-epoch pretrained ResNet-18, class-weighted loss, and higher image resolution; expand error analysis
 

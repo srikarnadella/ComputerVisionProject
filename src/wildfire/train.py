@@ -2,6 +2,12 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import sys
+
+# Ensure `src` is on sys.path so `python -m wildfire.train` works without PYTHONPATH
+SRC_ROOT = Path(__file__).resolve().parents[1]
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
 import torch
 from tqdm import tqdm
@@ -12,7 +18,15 @@ from wildfire.models import build_model
 from wildfire.utils import ensure_dir, load_config, save_json, set_seed
 
 
-def run_epoch(model, loader, optimizer, criterion, device, train: bool) -> dict:
+def run_epoch(
+    model,
+    loader,
+    optimizer,
+    criterion,
+    device,
+    train: bool,
+    max_batches: int | None = None,
+) -> dict:
     if train:
         model.train()
     else:
@@ -22,7 +36,7 @@ def run_epoch(model, loader, optimizer, criterion, device, train: bool) -> dict:
     total_examples = 0
     summed = {"accuracy": 0.0, "precision": 0.0, "recall": 0.0, "f1": 0.0}
 
-    for images, targets in tqdm(loader, disable=False):
+    for batch_idx, (images, targets) in enumerate(tqdm(loader, disable=False), start=1):
         images = images.to(device)
         targets = targets.to(device)
 
@@ -40,6 +54,8 @@ def run_epoch(model, loader, optimizer, criterion, device, train: bool) -> dict:
         total_examples += batch_size
         for key in summed:
             summed[key] += metrics[key] * batch_size
+        if max_batches is not None and batch_idx >= max_batches:
+            break
 
     if total_examples == 0:
         return {"loss": None, "accuracy": None, "precision": None, "recall": None, "f1": None}
@@ -56,9 +72,29 @@ def run_epoch(model, loader, optimizer, criterion, device, train: bool) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True, help="Path to YAML config")
+    parser.add_argument(
+        "--max-train-batches",
+        type=int,
+        default=None,
+        help="Limit number of training batches per epoch for quick runs",
+    )
+    parser.add_argument(
+        "--max-val-batches",
+        type=int,
+        default=None,
+        help="Limit number of validation batches per epoch for quick runs",
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=None,
+        help="Override number of training epochs (defaults to config.training.epochs)",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
+    if args.epochs is not None:
+        config["training"]["epochs"] = args.epochs
     set_seed(config["experiment"]["seed"])
 
     device = torch.device(config["training"]["device"])
@@ -87,6 +123,7 @@ def main() -> None:
             criterion=criterion,
             device=device,
             train=True,
+            max_batches=args.max_train_batches or config["training"].get("max_train_batches"),
         )
         val_metrics = run_epoch(
             model=model,
@@ -95,6 +132,7 @@ def main() -> None:
             criterion=criterion,
             device=device,
             train=False,
+            max_batches=args.max_val_batches or config["training"].get("max_val_batches"),
         )
 
         record = {"epoch": epoch + 1, "train": train_metrics, "val": val_metrics}

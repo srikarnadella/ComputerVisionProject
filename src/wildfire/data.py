@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PIL import ImageFile
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
+# Allow loading truncated images instead of crashing
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 def _build_transform(image_size: int, train: bool):
     resize = transforms.Resize((image_size, image_size))

@@ -1,0 +1,25 @@
+experiment:
+  name: wildfire_resnet18_fast
+  seed: 42
+  output_dir: outputs/wildfire_resnet18_fast
+
+data:
+  root_dir: data
+  train_split: train
+  val_split: valid
+  test_split: test
+  image_size: 160
+  batch_size: 32
+  num_workers: 4
+
+model:
+  name: resnet18
+  num_classes: 2
+  pretrained: true
+  dropout: 0.2
+
+training:
+  epochs: 2
+  lr: 0.0003
+  weight_decay: 0.0001
+  device: cpu

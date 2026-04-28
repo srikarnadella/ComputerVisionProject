@@ -1,0 +1,39 @@
+experiment:
+  name: wildfire_resnet18_final
+  seed: 42
+  output_dir: outputs/wildfire_resnet18_final
+
+data:
+  root_dir: data
+  train_split: train
+  val_split: valid
+  test_split: test
+  image_size: 224
+  batch_size: 32
+  num_workers: 4        # safe: data.py guards pin_memory/persistent_workers
+  preprocessing:
+    # FireContrastEnhance is the recommended preprocessing.
+    # It boosts warm/fire pixels AND partially desaturates the background.
+    use_fire_contrast_enhance: true
+    fire_enhance_saturation_scale: 1.4
+    fire_enhance_value_scale: 1.12
+    fire_enhance_bg_desat_factor: 0.4
+    fire_enhance_warm_hue_high: 0.18
+    fire_enhance_saturation_threshold: 0.2
+
+    use_warm_color_boost: false
+    use_selective_grayscale: false
+    apply_color_preprocess_on_eval: true
+
+model:
+  name: resnet18
+  num_classes: 2
+  pretrained: true
+  dropout: 0.3
+
+training:
+  epochs: 5
+  lr: 0.0003
+  weight_decay: 0.0001
+  device: cuda:1
+  class_weight_mode: none

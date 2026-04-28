@@ -1,0 +1,16 @@
+{
+  "total": 6300,
+  "correct": 6226,
+  "errors": 74,
+  "accuracy": 0.9882539682539683,
+  "false_positives": 20,
+  "false_negatives": 54,
+  "failure_modes": {
+    "SMOKE_HAZE": 1,
+    "BRIGHT_TERRAIN": 0,
+    "LOW_CONTRAST": 7,
+    "OTHER": 66
+  },
+  "mean_error_confidence": 0.37257050804013536,
+  "mean_correct_confidence": 0.5449438081367244
+}

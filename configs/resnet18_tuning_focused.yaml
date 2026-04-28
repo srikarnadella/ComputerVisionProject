@@ -1,0 +1,64 @@
+experiment:
+  name: wildfire_resnet18_tuning
+  seed: 42
+  output_dir: outputs/wildfire_resnet18_tuning_base
+
+data:
+  root_dir: data
+  train_split: train
+  val_split: valid
+  test_split: test
+  image_size: 160
+  batch_size: 32
+  num_workers: 4
+  preprocessing:
+    use_fire_contrast_enhance: false
+    use_warm_color_boost: false
+    use_selective_grayscale: false
+    apply_color_preprocess_on_eval: true
+
+model:
+  name: resnet18
+  num_classes: 2
+  pretrained: true      # fixed — pretrained is always better, not a tuning axis
+  dropout: 0.2          # fixed — not a primary axis
+
+training:
+  epochs: 5
+  lr: 0.0003            # overridden by search_space
+  weight_decay: 0.0001
+  device: cuda:1
+  class_weight_mode: none   # overridden by search_space
+
+# ── Tuning grid: 3 × 2 × 2 × 2 = 24 trials ──────────────────────────────────
+# Run all 24 on GPU:
+#   python -m src.wildfire.tune \
+#     --config configs/resnet18_tuning_focused.yaml \
+#     --split val
+#
+# CPU smoke test (12 trials, capped):
+#   python -m src.wildfire.tune \
+#     --config configs/resnet18_tuning_focused.yaml \
+#     --split val \
+#     --max-trials 12 \
+#     --max-train-batches 400 \
+#     --max-val-batches 200 \
+#     --epochs 3
+#
+# Outputs:
+#   outputs/wildfire_hparam_tuning/ranking.json  — all trials sorted by val F1
+#   outputs/wildfire_hparam_tuning/ranking.md    — paste-ready markdown table
+#   outputs/wildfire_hparam_tuning/trial_NN/     — per-trial artifacts
+# ─────────────────────────────────────────────────────────────────────────────
+tuning:
+  output_dir: outputs/wildfire_hparam_tuning
+  selection_metric: f1
+  selection_mode: max
+  num_qualitative: 16
+  max_eval_batches:     # null = full eval
+
+  search_space:
+    training.lr: [0.0001, 0.0003, 0.001]
+    training.class_weight_mode: ["none", "balanced"]
+    data.preprocessing.use_warm_color_boost: [false, true]
+    data.preprocessing.use_selective_grayscale: [false, true]
